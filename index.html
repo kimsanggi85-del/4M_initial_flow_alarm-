@@ -140,6 +140,17 @@ input:focus,select:focus,textarea:focus{outline:2px solid #BBD0F5;border-color:v
 .sb-status{font-size:.78rem;margin-top:4px;min-height:1.2em}
 .modal.dark .x-close{position:absolute;top:14px;right:16px;background:none;border:none;color:#8CA0C4;font-size:1.2rem;cursor:pointer}
 
+/* 화면 맞춤 모드: 가로 스크롤 없이 한 화면에 */
+table.fit{min-width:0;font-size:.75rem}
+table.fit th{font-size:.67rem;padding:7px 4px}
+table.fit td{padding:6px 4px}
+table.fit .col-ba,table.fit .col-dates{display:none}
+table.fit .badge{font-size:.62rem;padding:1px 6px}
+table.fit .vcell .date{font-size:.7rem}
+table.fit .vcell{gap:2px}
+table.fit .outcome-line,table.fit .done-line{display:none}
+table.fit td.left{max-width:170px!important}
+
 @media (max-width:700px){
   main{padding:14px 12px 50px}
   .form-grid{grid-template-columns:1fr}
@@ -210,6 +221,7 @@ input:focus,select:focus,textarea:focus{outline:2px solid #BBD0F5;border-color:v
       <option value="done">완료</option>
     </select>
     <div class="spacer"></div>
+    <button class="btn" id="fitBtn" onclick="toggleFit()">🗖 전체 컬럼 보기</button>
     <button class="btn btn-primary" onclick="openForm()">＋ 4M 변경 등록</button>
   </div>
 
@@ -219,12 +231,12 @@ input:focus,select:focus,textarea:focus{outline:2px solid #BBD0F5;border-color:v
       <span class="hint">DQF403-02 · TJP-M0706-13 · ㈜태진다이텍</span>
     </div>
     <div class="table-wrap">
-      <table>
+      <table id="mainTable">
         <thead>
           <tr>
             <th>관리번호</th><th>4M 구분</th><th>고객사</th><th>품번 / 품명</th>
-            <th>변경목적</th><th>변경 전 → 후</th><th>승인</th>
-            <th>접수 / 통보 / 승인일</th><th>적용일자<br>(기준일)</th>
+            <th>변경목적</th><th class="col-ba">변경 전 → 후</th><th>승인</th>
+            <th class="col-dates">접수 / 통보 / 승인일</th><th>적용일자<br>(기준일)</th>
             <th>초기유동 검증 1차<br>(+1개월)</th><th>초기유동 검증 2차<br>(+2개월)</th><th>초기유동 검증 3차<br>(+3개월)</th>
             <th>관리</th>
           </tr>
@@ -902,8 +914,8 @@ function render(){
       return `<td><div class="vcell">
         <span class="date mono">${v.due}</span>
         <span class="badge ${s.cls}">${s.label}</span>
-        ${v.doneDate?`<span style="font-size:.7rem;color:var(--muted)" title="${(v.method||'')+' / '+(v.outcome||'')}">${v.doneDate}${v.verifier?' · '+v.verifier:''}</span>`:''}
-        ${v.outcome?`<span style="font-size:.68rem;color:var(--muted);max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${v.outcome}</span>`:''}
+        ${v.doneDate?`<span class="done-line" style="font-size:.7rem;color:var(--muted)" title="${(v.method||'')+' / '+(v.outcome||'')}">${v.doneDate}${v.verifier?' · '+v.verifier:''}</span>`:''}
+        ${v.outcome?`<span class="outcome-line" style="font-size:.68rem;color:var(--muted);max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${v.outcome}</span>`:''}
         ${v.skip&&!v.doneDate?'':`<button onclick="openVerify(${it.id},${v.no})">${v.doneDate?'수정':'결과입력'}</button>`}
       </div></td>`;
     };
@@ -916,9 +928,9 @@ function render(){
       <td>${it.cust||''}</td>
       <td class="left">${it.part||''}</td>
       <td class="left" style="max-width:180px">${it.desc||''}</td>
-      <td class="left mono" style="max-width:140px;font-size:.76rem">${it.before||'-'} → ${it.after||'-'}</td>
+      <td class="left mono col-ba" style="max-width:140px;font-size:.76rem">${it.before||'-'} → ${it.after||'-'}</td>
       <td><div class="vcell"><span style="font-size:.72rem">${it.apprType||''}</span>${apprBadge}</div></td>
-      <td class="mono" style="font-size:.72rem">${it.receipt||'-'}<br>${it.notify||'-'}<br>${it.approve||'-'}</td>
+      <td class="mono col-dates" style="font-size:.72rem">${it.receipt||'-'}<br>${it.notify||'-'}<br>${it.approve||'-'}</td>
       <td class="mono"><b>${it.apply}</b></td>
       ${vcell(it.vers[0])}${vcell(it.vers[1])}${vcell(it.vers[2])}
       <td>
@@ -950,6 +962,15 @@ function render(){
     </div>`).join('')
     : '<div class="empty">금일 기준 알람 대상이 없습니다. ✅</div>';
 }
+
+/* ----- 화면 맞춤 모드 ----- */
+let fitMode=localStorage.getItem('4m_fit')!=='0'; // 기본: 화면 맞춤
+function applyFit(){
+  document.getElementById('mainTable').classList.toggle('fit',fitMode);
+  document.getElementById('fitBtn').textContent=fitMode?'🗖 전체 컬럼 보기':'🗗 화면 맞춤';
+}
+function toggleFit(){fitMode=!fitMode;localStorage.setItem('4m_fit',fitMode?'1':'0');applyFit();}
+applyFit();
 
 /* 모달 바깥 클릭 닫기 */
 document.querySelectorAll('.modal-bg').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
