@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>4M 변경 초기유동 관리 알람 시스템</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<style>
+:root{
+  --ink:#16233B;        /* 헤더/본문 딥네이비 */
+  --paper:#F2F4F7;      /* 배경 */
+  --card:#FFFFFF;
+  --line:#DDE2EA;
+  --steel:#2F5FB3;      /* 주 액션 */
+  --muted:#6B7686;
+  --ok:#15803D;   --ok-bg:#E8F6ED;
+  --warn:#B45309; --warn-bg:#FEF3C7;
+  --danger:#DC2626; --danger-bg:#FEE2E2;
+  --late:#7F1D1D; --late-bg:#FBD5D5;
+  --plan:#5B6472; --plan-bg:#EEF1F5;
+  --radius:10px;
+  font-size:15px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Pretendard Variable',Pretendard,'Malgun Gothic',sans-serif;background:var(--paper);color:var(--ink);line-height:1.5}
+header{background:var(--ink);color:#fff;padding:16px 24px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+header .logo{width:38px;height:38px;border-radius:8px;background:linear-gradient(135deg,#2F5FB3,#4C86E8);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;letter-spacing:.5px}
+header h1{font-size:1.15rem;font-weight:700}
+header .sub{font-size:.8rem;color:#AEBBD3}
+header .spacer{flex:1}
+header button{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);color:#fff;border-radius:8px;padding:7px 13px;font-size:.82rem;cursor:pointer;font-family:inherit}
+header button:hover{background:rgba(255,255,255,.22)}
+main{max-width:1280px;margin:0 auto;padding:20px 24px 60px}
+
+/* KPI */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:18px}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px}
+.kpi .n{font-size:1.7rem;font-weight:800;font-variant-numeric:tabular-nums}
+.kpi .t{font-size:.78rem;color:var(--muted);margin-top:2px}
+.kpi.k-warn .n{color:var(--warn)} .kpi.k-danger .n{color:var(--danger)} .kpi.k-late .n{color:var(--late)} .kpi.k-ok .n{color:var(--ok)}
+
+/* 알람 보드 */
+.panel{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);margin-bottom:18px;overflow:hidden}
+.panel-h{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.panel-h h2{font-size:.95rem;font-weight:700}
+.panel-h .hint{font-size:.75rem;color:var(--muted)}
+.panel-h .spacer{flex:1}
+.alarm-list{padding:8px 16px 14px}
+.alarm-item{display:flex;align-items:center;gap:12px;padding:9px 10px;border-bottom:1px dashed var(--line);font-size:.85rem;flex-wrap:wrap}
+.alarm-item:last-child{border-bottom:none}
+.alarm-item .who{font-weight:700;min-width:170px}
+.alarm-item .desc{color:var(--muted);flex:1;min-width:180px}
+.empty{padding:22px;text-align:center;color:var(--muted);font-size:.85rem}
+
+/* 배지 */
+.badge{display:inline-block;padding:2px 9px;border-radius:99px;font-size:.72rem;font-weight:700;white-space:nowrap}
+.b-plan{background:var(--plan-bg);color:var(--plan)}
+.b-d7{background:var(--warn-bg);color:var(--warn)}
+.b-dday{background:var(--danger-bg);color:var(--danger)}
+.b-late{background:var(--late-bg);color:var(--late)}
+.b-ok{background:var(--ok-bg);color:var(--ok)}
+.b-cat{background:#E3EBFA;color:#2F5FB3}
+
+/* 툴바 */
+.toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+.toolbar input[type=text],.toolbar select{padding:8px 11px;border:1px solid var(--line);border-radius:8px;font-size:.85rem;font-family:inherit;background:#fff}
+.toolbar .spacer{flex:1}
+.btn{padding:8px 14px;border-radius:8px;border:1px solid var(--line);background:#fff;font-size:.83rem;cursor:pointer;font-family:inherit;font-weight:600;color:var(--ink)}
+.btn:hover{background:#F5F7FB}
+.btn-primary{background:var(--steel);border-color:var(--steel);color:#fff}
+.btn-primary:hover{background:#264F97}
+.btn-danger{color:var(--danger);border-color:#F3B9B9}
+.btn-sm{padding:4px 9px;font-size:.75rem;border-radius:6px}
+
+/* 테이블 */
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:.82rem;min-width:1420px}
+th{background:#F7F9FC;border-bottom:2px solid var(--line);padding:9px 8px;font-size:.75rem;color:#44506A;white-space:nowrap;text-align:center}
+td{border-bottom:1px solid var(--line);padding:8px;text-align:center;vertical-align:middle}
+td.left{text-align:left}
+tr:hover td{background:#FAFBFD}
+.mono{font-variant-numeric:tabular-nums}
+.vcell{display:flex;flex-direction:column;gap:3px;align-items:center}
+.vcell .date{font-size:.78rem}
+.vcell button{border:none;background:none;color:var(--steel);font-size:.72rem;cursor:pointer;text-decoration:underline;font-family:inherit}
+
+/* 모달 */
+.modal-bg{position:fixed;inset:0;background:rgba(15,23,42,.45);display:none;align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto;z-index:50}
+.modal-bg.open{display:flex}
+.modal{background:#fff;border-radius:14px;width:100%;max-width:640px;padding:22px 24px;box-shadow:0 20px 60px rgba(0,0,0,.25)}
+.modal h3{font-size:1rem;margin-bottom:16px}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.form-grid .full{grid-column:1/-1}
+label{display:block;font-size:.75rem;font-weight:700;color:#44506A;margin-bottom:4px}
+input,select,textarea{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:.85rem;font-family:inherit}
+textarea{resize:vertical;min-height:60px}
+input:focus,select:focus,textarea:focus{outline:2px solid #BBD0F5;border-color:var(--steel)}
+.modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
+.calc-preview{grid-column:1/-1;background:#F7F9FC;border:1px dashed var(--line);border-radius:8px;padding:10px 12px;font-size:.78rem;color:#44506A}
+.calc-preview b{color:var(--steel)}
+
+/* 탭 */
+.tabs{display:flex;gap:6px;margin-bottom:16px;border-bottom:2px solid var(--line)}
+.tabs button{border:none;background:none;font-family:inherit;font-size:.9rem;font-weight:700;color:var(--muted);padding:10px 16px;cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px}
+.tabs button.active{color:var(--steel);border-bottom-color:var(--steel)}
+.tabpane{display:none}.tabpane.active{display:block}
+
+/* 사내 점검 체크리스트 */
+.chk-group{border:1px solid var(--line);border-radius:8px;margin-bottom:10px;overflow:hidden}
+.chk-group>.g-title{background:#F7F9FC;padding:7px 12px;font-size:.78rem;font-weight:800;color:#44506A;display:flex;gap:8px;align-items:center}
+.chk-row{display:flex;align-items:center;gap:10px;padding:8px 12px;border-top:1px solid var(--line);font-size:.83rem;flex-wrap:wrap}
+.chk-row .q{flex:1;min-width:200px}
+.chk-row .opts{display:flex;gap:10px;white-space:nowrap}
+.chk-row .opts label{display:flex;align-items:center;gap:4px;font-size:.8rem;font-weight:600;margin:0;color:var(--ink);cursor:pointer}
+.chk-row input[type=radio]{width:auto}
+.chk-row .detail{width:100%;display:none}
+.chk-row.changed .detail{display:block}
+.chk-row.changed{background:#FFF9EC}
+.found-chip{display:inline-block;background:var(--warn-bg);color:var(--warn);border-radius:99px;padding:1px 8px;font-size:.7rem;font-weight:800}
+
+@media (max-width:700px){
+  main{padding:14px 12px 50px}
+  .form-grid{grid-template-columns:1fr}
+  .alarm-item .who{min-width:0}
+}
+@media print{
+  header button,.toolbar,.vcell button{display:none}
+  body{background:#fff}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">4M</div>
+  <div>
+    <h1>4M 변경 초기유동 관리 알람 시스템</h1>
+    <div class="sub">태진다이텍 품질관리팀 · 초기 유동 검증 누락 방지 (D-7 / D-DAY 알람)</div>
+  </div>
+  <div class="spacer"></div>
+  <button onclick="openSettings()">⚙ 알람 설정</button>
+  <button onclick="exportCSV()">Excel 내보내기</button>
+  <button onclick="backupJSON()">백업</button>
+  <button onclick="document.getElementById('restoreFile').click()">복원</button>
+  <input type="file" id="restoreFile" accept=".json" style="display:none" onchange="restoreJSON(this)">
+</header>
+
+<main>
+  <nav class="tabs">
+    <button class="active" id="tabBtn1" onclick="switchTab(1)">① 4M 변경 · 초기유동 알람 관리</button>
+    <button id="tabBtn2" onclick="switchTab(2)">② 사내 4M 변경여부 점검 (자체확인)</button>
+  </nav>
+
+  <div class="tabpane active" id="tab1">
+  <!-- KPI -->
+  <div class="kpis">
+    <div class="kpi"><div class="n" id="kpiTotal">0</div><div class="t">등록 4M 변경 건수</div></div>
+    <div class="kpi k-warn"><div class="n" id="kpiD7">0</div><div class="t">1회 알람 (D-7 이내)</div></div>
+    <div class="kpi k-danger"><div class="n" id="kpiDday">0</div><div class="t">2회 알람 (D-DAY)</div></div>
+    <div class="kpi k-late"><div class="n" id="kpiLate">0</div><div class="t">검증 지연</div></div>
+    <div class="kpi k-ok"><div class="n" id="kpiDone">0</div><div class="t">검증 완료 (3차까지)</div></div>
+  </div>
+
+  <!-- 알람 보드 -->
+  <div class="panel">
+    <div class="panel-h">
+      <h2>📣 금일 알람 대상 <span class="hint" id="todayLabel"></span></h2>
+      <span class="hint">기준일: 적용일자 · 검증일자 = 적용일 +1/+2/+3개월</span>
+      <div class="spacer"></div>
+      <button class="btn btn-sm" onclick="sendMail()">✉ 알람 메일 작성</button>
+    </div>
+    <div class="alarm-list" id="alarmList"></div>
+  </div>
+
+  <!-- 목록 -->
+  <div class="toolbar">
+    <input type="text" id="q" placeholder="품번 / 고객사 / 변경내용 검색" oninput="render()">
+    <select id="fCat" onchange="render()">
+      <option value="">4M 구분 전체</option>
+      <option>Man</option><option>Machine</option><option>Material</option><option>Method</option>
+    </select>
+    <select id="fStatus" onchange="render()">
+      <option value="">상태 전체</option>
+      <option value="alarm">알람/지연만</option>
+      <option value="open">진행중</option>
+      <option value="done">완료</option>
+    </select>
+    <div class="spacer"></div>
+    <button class="btn btn-primary" onclick="openForm()">＋ 4M 변경 등록</button>
+  </div>
+
+  <div class="panel">
+    <div class="panel-h">
+      <h2>📋 4M 변경 관리대장</h2>
+      <span class="hint">DQF403-02 · TJP-M0706-13 · ㈜태진다이텍</span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>관리번호</th><th>4M 구분</th><th>고객사</th><th>품번 / 품명</th>
+            <th>변경목적</th><th>변경 전 → 후</th><th>승인</th>
+            <th>접수 / 통보 / 승인일</th><th>적용일자<br>(기준일)</th>
+            <th>초기유동 검증 1차<br>(+1개월)</th><th>초기유동 검증 2차<br>(+2개월)</th><th>초기유동 검증 3차<br>(+3개월)</th>
+            <th>관리</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+    <div class="empty" id="emptyMsg" style="display:none">등록된 4M 변경 건이 없습니다. 우측 상단 [＋ 4M 변경 등록]으로 시작하세요.</div>
+  </div>
+  </div><!-- /tab1 -->
+
+  <!-- ② 사내 4M 변경여부 점검 -->
+  <div class="tabpane" id="tab2">
+    <div class="kpis">
+      <div class="kpi"><div class="n" id="ckTotal">0</div><div class="t">누적 점검 횟수</div></div>
+      <div class="kpi"><div class="n" id="ckLast" style="font-size:1.05rem;line-height:2.2">-</div><div class="t">최근 점검일</div></div>
+      <div class="kpi k-warn"><div class="n" id="ckFound">0</div><div class="t">변동 발견 항목 (누적)</div></div>
+      <div class="kpi k-danger"><div class="n" id="ckUnlinked">0</div><div class="t">4M 등록 미연계</div></div>
+      <div class="kpi k-late"><div class="n" id="ckOverdue" style="font-size:1.05rem;line-height:2.2">-</div><div class="t">차기 점검 예정일</div></div>
+    </div>
+
+    <div class="toolbar">
+      <select id="ckFilter" onchange="renderChecks()">
+        <option value="">전체 점검 이력</option>
+        <option value="found">변동 발견 건만</option>
+        <option value="none">변동 없음 건만</option>
+      </select>
+      <span class="hint" style="font-size:.75rem;color:var(--muted)">「4M 신고 판단 및 승인 기준」(2021.01.25) 21개 항목 · 자체승인/고객승인(ISIR) 구분 · 주기 내 미실시 시 지연 표시</span>
+      <div class="spacer"></div>
+      <button class="btn" onclick="exportChecksCSV()">점검이력 Excel</button>
+      <button class="btn btn-primary" onclick="openCheck()">＋ 사내 4M 변동 확인 실시</button>
+    </div>
+
+    <div class="panel">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>점검일자</th><th>주기</th><th>담당자 / 책임</th><th>대상 라인/공정</th>
+              <th>점검 결과</th><th>변동 발견 내용 (승인기준)</th><th>4M 등록 연계</th><th>관리</th>
+            </tr>
+          </thead>
+          <tbody id="ckBody"></tbody>
+        </table>
+      </div>
+      <div class="empty" id="ckEmpty" style="display:none">점검 이력이 없습니다. [＋ 사내 4M 변동 확인 실시]로 첫 점검을 등록하세요.</div>
+    </div>
+  </div><!-- /tab2 -->
+</main>
+
+<!-- 사내 4M 변경여부 점검 모달 -->
+<div class="modal-bg" id="checkModal">
+  <div class="modal" style="max-width:720px">
+    <h3 id="checkTitle">사내 4M 변동 확인 (자체점검)</h3>
+    <div class="form-grid" style="margin-bottom:12px">
+      <div><label>점검일자 *</label><input type="date" id="ckDate"></div>
+      <div><label>점검 주기</label><select id="ckCycle"><option>월간</option><option>주간</option><option>수시</option></select></div>
+      <div><label>담당자</label><input id="ckInspector" placeholder="예: 김상기"></div>
+      <div><label>품질 책임</label><input id="ckQaLead" placeholder="예: 강병주"></div>
+      <div class="full"><label>대상 라인/공정</label><input id="ckLine" placeholder="예: 프레스 전 라인, P-1~P-49"></div>
+    </div>
+    <div id="ckItems"></div>
+    <div style="margin-top:10px"><label>특이사항 / 종합 의견</label><textarea id="ckNote" placeholder="※ 점검월 변동사항 없을 시 '해당 없음' 명기 / 변동사항 있을 시 4M 변경 등록 연계"></textarea></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeCheck()">취소</button>
+      <button class="btn btn-primary" onclick="saveCheck()">저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- 등록/수정 모달 -->
+<div class="modal-bg" id="formModal">
+  <div class="modal">
+    <h3 id="formTitle">4M 변경 등록</h3>
+    <div class="form-grid">
+      <div><label>관리번호</label><input id="fmNo" placeholder="예: 4M-2026-001"></div>
+      <div><label>4M 구분</label>
+        <select id="fmCat"><option>Man</option><option>Machine</option><option>Material</option><option>Method</option></select>
+      </div>
+      <div><label>고객사</label><input id="fmCust" placeholder="예: SKF, 일진글로벌, 세동산업"></div>
+      <div><label>품번 / 품명</label><input id="fmPart" placeholder="예: 1970-363 (Open Seal XM(CM))"></div>
+      <div class="full"><label>변경 목적</label><textarea id="fmDesc" placeholder="예: 도면현실화, 철 안착성 개선을 위한 내경 치수 추가"></textarea></div>
+      <div><label>변경 전</label><input id="fmBefore" placeholder="예: 1.3±0.1"></div>
+      <div><label>변경 후</label><input id="fmAfter" placeholder="예: 1.4±0.1"></div>
+      <div><label>승인 구분</label>
+        <select id="fmApprType"><option>자체승인</option><option>고객승인</option></select></div>
+      <div><label>승인 여부</label>
+        <select id="fmApprState"><option>진행중</option><option>승인</option><option>반려</option></select></div>
+      <div><label>접수일자</label><input type="date" id="fmReceipt"></div>
+      <div><label>고객통보일자</label><input type="date" id="fmNotify"></div>
+      <div><label>고객승인일자</label><input type="date" id="fmApprove"></div>
+      <div><label>적용일자 (알람 기준일) *</label><input type="date" id="fmApply" onchange="previewDates()"></div>
+      <div class="full"><label>비고</label><input id="fmRemark" placeholder="예: 자체승인, 고객승인 진행중, 고객사요청"></div>
+      <div class="calc-preview" id="calcPreview">적용일자를 입력하면 초기유동 검증일자(1·2·3차)와 알람 일정(D-7 / D-DAY)이 자동 계산됩니다.</div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeForm()">취소</button>
+      <button class="btn btn-primary" onclick="saveForm()">저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- 검증 완료 모달 -->
+<div class="modal-bg" id="verifyModal">
+  <div class="modal" style="max-width:420px">
+    <h3 id="verifyTitle">초기유동 검증 결과 입력</h3>
+    <div class="form-grid">
+      <div><label>검증 완료일 (실시일자)</label><input type="date" id="vmDate"></div>
+      <div><label>판정</label><select id="vmResult"><option>OK</option><option>NG</option></select></div>
+      <div class="full"><label>초기유동 실시방법</label><input id="vmMethod" placeholder="예: 변경후 높이치수 확인, 폭 변경후 전치수 확인"></div>
+      <div class="full"><label>초기유동 실시결과</label><input id="vmOutcome" placeholder="예: 높이치수 확인결과 양호함"></div>
+      <div class="full"><label>검증자</label><input id="vmVerifier" placeholder="예: 문수진"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-danger" onclick="clearVerify()">기록 삭제</button>
+      <button class="btn" onclick="closeVerify()">취소</button>
+      <button class="btn btn-primary" onclick="saveVerify()">저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- 알람 설정 모달 -->
+<div class="modal-bg" id="settingsModal">
+  <div class="modal" style="max-width:480px">
+    <h3>알람 설정</h3>
+    <div class="form-grid">
+      <div class="full"><label>알람 수신자 (품질관리 검토부서 팀원, 콤마 구분)</label>
+        <input id="stMails" placeholder="예: qa1@company.co.kr, qa2@company.co.kr"></div>
+      <div><label>1회 알람 (검증일 기준)</label>
+        <select id="stD1"><option value="7">D-7</option><option value="5">D-5</option><option value="3">D-3</option></select></div>
+      <div><label>2회 알람</label>
+        <select id="stD2"><option value="0">D-DAY</option><option value="1">D-1</option></select></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeSettings()">취소</button>
+      <button class="btn btn-primary" onclick="saveSettings()">저장</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const LS_KEY='4m_iflow_v1', LS_SET='4m_iflow_settings_v1', LS_CHK='4m_iflow_checks_v1';
+let items=JSON.parse(localStorage.getItem(LS_KEY)||'[]');
+let checks=JSON.parse(localStorage.getItem(LS_CHK)||'[]');
+let settings=Object.assign({mails:'',d1:7,d2:0},JSON.parse(localStorage.getItem(LS_SET)||'{}'));
+let editId=null, verifyTarget=null, editCheckId=null, pendingLink=null;
+
+/* ---------- 관리대장(DQF403-02) 기존 이력 시드 데이터 ----------
+   구이력(2025년 이전)은 vers.skip=true 로 알람 대상에서 제외됩니다. */
+const SEED=[{"id":978421734,"mgmtNo":"4M-2019-001","cat":"Method","cust":"SKF","part":"1970-363(Open Seal XM(CM)","desc":"도면현실화","before":"1.3±0.1","after":"1.4±0.1","apprType":"고객승인","apprState":"승인","receipt":"2019-04-19","notify":"2019-04-19","approve":"2019-05-17","apply":"2019-05-20","remark":"","legacy":true,"vers":[{"no":1,"due":"2019-06-20","doneDate":"2019-05-21","result":"OK","method":"[2019.05.21~2019.05.22] 변경후 높이치수 확인","outcome":"높이치수확인결과 양호함","verifier":""},{"no":2,"due":"2019-07-20","skip":true},{"no":3,"due":"2019-08-20","skip":true}]},{"id":443629442,"mgmtNo":"4M-2019-002","cat":"Method","cust":"SKF","part":"1973-370(Open Seal DH-CAR)","desc":"도면현실화","before":"1.3±0.1","after":"1.4±0.1","apprType":"고객승인","apprState":"승인","receipt":"2019-04-19","notify":"2019-04-19","approve":"2019-05-19","apply":"2019-05-20","remark":"","legacy":true,"vers":[{"no":1,"due":"2019-06-20","doneDate":"2019-05-22","result":"OK","method":"[2019.05.22~2019.05.24] 변경후 높이치수 확인","outcome":"높이치수확인결과 양호함","verifier":""},{"no":2,"due":"2019-07-20","skip":true},{"no":3,"due":"2019-08-20","skip":true}]},{"id":150079459,"mgmtNo":"4M-2019-003","cat":"Method","cust":"SKF","part":"1664-128(Encoder Seal L43)","desc":"도면현실화","before":"78.72 +0.06/0","after":"76.72±0.04","apprType":"고객승인","apprState":"승인","receipt":"2019-04-26","notify":"2019-04-26","approve":"2019-05-17","apply":"2019-05-20","remark":"","legacy":true,"vers":[{"no":1,"due":"2019-06-20","doneDate":"2019-10-02","result":"OK","method":"[2019.10.02~2019.10.04] 변경후 외경치수 확인","outcome":"외경치수확인결과 양호함","verifier":""},{"no":2,"due":"2019-07-20","skip":true},{"no":3,"due":"2019-08-20","skip":true}]},{"id":926395629,"mgmtNo":"4M-2019-004","cat":"Method","cust":"SKF","part":"1945-349(DUAL PACK SEAL RCC(RB)-RR","desc":"도면현실화","before":"3.65+0.36/0","after":"3.7+0.15/0","apprType":"고객승인","apprState":"승인","receipt":"2019-05-03","notify":"2019-05-03","approve":"2019-05-17","apply":"2019-05-20","remark":"","legacy":true,"vers":[{"no":1,"due":"2019-06-20","doneDate":"2019-07-30","result":"OK","method":"[2019.07.30~2019.07.31] 변경후 높이치수 확인","outcome":"높이치수확인결과 양호함","verifier":""},{"no":2,"due":"2019-07-20","skip":true},{"no":3,"due":"2019-08-20","skip":true}]},{"id":332709307,"mgmtNo":"4M-2019-005","cat":"Method","cust":"SKF","part":"1553-101(STAMPING)","desc":"도면현실화","before":"4.3±0.05","after":"4.25±0.05","apprType":"고객승인","apprState":"승인","receipt":"2019-05-03","notify":"2019-05-03","approve":"2019-05-17","apply":"2019-05-20","remark":"","legacy":true,"vers":[{"no":1,"due":"2019-06-20","doneDate":"2019-07-23","result":"OK","method":"[2019.07.23~2019.07.25] 변경후 높이치수 확인","outcome":"높이치수확인결과 양호함","verifier":""},{"no":2,"due":"2019-07-20","skip":true},{"no":3,"due":"2019-08-20","skip":true}]},{"id":968430957,"mgmtNo":"4M-2019-006","cat":"Method","cust":"SKF","part":"1950-354-1","desc":"도면현실화","before":"64.70+0.05/0","after":"64.78±0.05","apprType":"고객승인","apprState":"승인","receipt":"2019-05-03","notify":"2019-05-03","approve":"2019-05-17","apply":"2019-05-20","remark":"생산없음","legacy":true,"vers":[{"no":1,"due":"2019-06-20","skip":true},{"no":2,"due":"2019-07-20","skip":true},{"no":3,"due":"2019-08-20","skip":true}]},{"id":517139521,"mgmtNo":"4M-2019-007","cat":"Method","cust":"SKF","part":"1654-119","desc":"도면현실화","before":"64.65+0.06/0","after":"68.69±0.04","apprType":"고객승인","apprState":"승인","receipt":"2019-05-03","notify":"2019-05-03","approve":"2019-05-17","apply":"2019-05-20","remark":"","legacy":true,"vers":[{"no":1,"due":"2019-06-20","doneDate":"2019-10-28","result":"OK","method":"[2019.10.28~2019.10.29] 변경후 외경치수 확인","outcome":"외경치수확인결과 양호함","verifier":""},{"no":2,"due":"2019-07-20","skip":true},{"no":3,"due":"2019-08-20","skip":true}]},{"id":502019657,"mgmtNo":"4M-2022-001","cat":"Material","cust":"SKF","part":"AO-BDA-1179","desc":"Raceway 생산 원소재 폭축소","before":"W:140","after":"W:137","apprType":"자체승인","apprState":"승인","receipt":"2022-02-07","notify":"","approve":"","apply":"2022-02-07","remark":"자체승인 / 적용일자 미기재(접수/통보일 기준 산정)","legacy":true,"vers":[{"no":1,"due":"2022-03-07","doneDate":"2022-02-08","result":"OK","method":"[2022.02.08~2022.02.09] 폭 변경후 전치수확인","outcome":"전치수 측정결과 양호함","verifier":""},{"no":2,"due":"2022-04-07","skip":true},{"no":3,"due":"2022-05-07","skip":true}]},{"id":84361830,"mgmtNo":"4M-2022-002","cat":"Material","cust":"SKF","part":"AO-BDA-1113D","desc":"Raceway 생산 원소재 폭축소","before":"W:134","after":"W:132","apprType":"자체승인","apprState":"승인","receipt":"2022-02-07","notify":"","approve":"","apply":"2022-02-07","remark":"자체승인 / 적용일자 미기재(접수/통보일 기준 산정)","legacy":true,"vers":[{"no":1,"due":"2022-03-07","doneDate":"2022-02-08","result":"OK","method":"[2022.02.08~2022.02.09] 폭 변경후 전치수확인","outcome":"전치수 측정결과 양호함","verifier":""},{"no":2,"due":"2022-04-07","skip":true},{"no":3,"due":"2022-05-07","skip":true}]},{"id":869151272,"mgmtNo":"4M-2023-001","cat":"Method","cust":"SKF","part":"1960-0031-02","desc":"양산제조성 반영 공차 변경","before":"4.2±0.1","after":"4.2 +0.2/0","apprType":"고객승인","apprState":"진행중","receipt":"2023-07-17","notify":"2023-07-17","approve":"","apply":"2023-07-17","remark":"고객승인 진행중 / 적용일자 미기재(접수/통보일 기준 산정)","legacy":true,"vers":[{"no":1,"due":"2023-08-17","skip":true},{"no":2,"due":"2023-09-17","skip":true},{"no":3,"due":"2023-10-17","skip":true}]},{"id":485321250,"mgmtNo":"4M-2025-001","cat":"Machine","cust":"SKF","part":"1972-383-01","desc":"물량 증가로 인한 납기 문제 사전 방지 & 1호 금형정비 및 품질문제 사전예방으로 인한 2호금형 신작","before":"","after":"","apprType":"고객승인","apprState":"진행중","receipt":"2025-09-26","notify":"2025-09-26","approve":"","apply":"2025-09-26","remark":"고객승인 진행중 / 적용일자 미기재(접수/통보일 기준 산정) / 실시결과(구대장): 전치수 측정결과 양호함","legacy":false,"vers":[{"no":1,"due":"2025-10-26"},{"no":2,"due":"2025-11-26"},{"no":3,"due":"2025-12-26"}]},{"id":105985604,"mgmtNo":"4M-2025-002","cat":"Method","cust":"SKF","part":"1973-370","desc":"철 안착성 개선을 위한 내경 치수 추가","before":"치수없음","after":"MIN.84.28","apprType":"고객승인","apprState":"진행중","receipt":"2025-11-05","notify":"2025-11-05","approve":"","apply":"2025-11-05","remark":"고객사요청 / 적용일자 미기재(접수/통보일 기준 산정) / 실시결과(구대장): 측벽내경 측정결과 양호","legacy":false,"vers":[{"no":1,"due":"2025-12-05"},{"no":2,"due":"2026-01-05"},{"no":3,"due":"2026-02-05"}]},{"id":658303939,"mgmtNo":"4M-2026-001","cat":"Method","cust":"SKF","part":"1970-363","desc":"철 안착성 개선을 위한 내경 치수 추가","before":"치수없음","after":"MIN.81.30","apprType":"고객승인","apprState":"진행중","receipt":"2026-02-20","notify":"2025-11-05","approve":"","apply":"2025-11-05","remark":"고객사요청 / 적용일자 미기재(접수/통보일 기준 산정) / 실시결과(구대장): 측벽내경 측정결과 양호","legacy":false,"vers":[{"no":1,"due":"2025-12-05"},{"no":2,"due":"2026-01-05"},{"no":3,"due":"2026-02-05"}]},{"id":217276224,"mgmtNo":"4M-2026-002","cat":"Method","cust":"SKF","part":"1862-651","desc":"철 안착성 개선을 위한 내경 치수 추가","before":"치수없음","after":"MIN.74.90","apprType":"고객승인","apprState":"진행중","receipt":"2026-02-20","notify":"2026-02-27","approve":"","apply":"2026-02-27","remark":"고객승인 진행중 / 적용일자 미기재(접수/통보일 기준 산정) / 실시결과(구대장): 측벽내경 측정결과 양호","legacy":false,"vers":[{"no":1,"due":"2026-03-27"},{"no":2,"due":"2026-04-27"},{"no":3,"due":"2026-05-27"}]}];
+(function seedOnce(){
+  if(localStorage.getItem('4m_iflow_seed_v1'))return;
+  const ex=new Set(items.map(x=>x.mgmtNo));
+  SEED.forEach(sd=>{if(!ex.has(sd.mgmtNo))items.push(JSON.parse(JSON.stringify(sd)));});
+  localStorage.setItem(LS_KEY,JSON.stringify(items));
+  localStorage.setItem('4m_iflow_seed_v1','1');
+})();
+
+/* 사내 4M 변경여부 점검 항목 — 「4M 신고 판단 및 승인 기준」 (2021.01.25) 기준
+   appr: 자체 = 협력사 자체 승인 / 고객 = 고객 승인 (ISIR 실시) */
+const CHECK_ITEMS=[
+  {grp:'MAN (사람)',items:[
+    {key:'m1',q:'작업자 변경',appr:'자체'},
+    {key:'m2',q:'작업자 신규 투입 (신입, 미경험자)',appr:'자체'},
+    {key:'m3',q:'작업편성 변경 (1교대→2교대)',appr:'자체'}]},
+  {grp:'MACHINE (설비, 기계)',items:[
+    {key:'e1',q:'제조설비의 신설, 변경, 개조',appr:'고객'},
+    {key:'e2',q:'6개월 이상 유휴설비의 사용',appr:'자체'},
+    {key:'e3',q:'금형, 지그 신작 (수명이 짧은 소모성 금형 제외)',appr:'고객'},
+    {key:'e4',q:'제조공정의 설비 용량 변경',appr:'고객'},
+    {key:'e5',q:'설비고장으로 장시간 임시공정 사용',appr:'고객'}]},
+  {grp:'MATERIAL (재료)',items:[
+    {key:'t1',q:'원/부자재 재질변경 (첨가제, 윤활제 포함)',appr:'고객'},
+    {key:'t2',q:'식별표시 변경',appr:'고객'},
+    {key:'t3',q:'방청재, 세척재 변경',appr:'고객'},
+    {key:'t4',q:'사급형태 변경 (원자재 사급 → 직접구매 등)',appr:'고객'},
+    {key:'t5',q:'포장의 변경 (고객과 협의된 포장 방법의 변경)',appr:'고객'}]},
+  {grp:'METHOD (방법, 조건)',items:[
+    {key:'h1',q:'작업순서, 방법의 변경 (자체 작업순서)',appr:'자체'},
+    {key:'h2',q:'공급자 변경',appr:'고객'},
+    {key:'h3',q:'표면처리 변경',appr:'고객'},
+    {key:'h4',q:'공정관리 및 검사기준 변경',appr:'고객'},
+    {key:'h5',q:'도면관리 기준 변경 (자체도면)',appr:'고객'},
+    {key:'h6',q:'제조공정 및 방법 변경 (공정의 순서 변경·삭제·추가·통합)',appr:'고객'},
+    {key:'h7',q:'생산장소 변경 (공장변경 / 자체↔외주)',appr:'고객'}]}
+];
+const keyToCat=k=>({m:'Man',e:'Machine',t:'Material',h:'Method'})[k[0]];
+function findItem(k){for(const g of CHECK_ITEMS)for(const it of g.items)if(it.key===k)return it;return {q:k,appr:''};}
+const keyToQ=k=>findItem(k).q;
+
+function switchTab(n){
+  [1,2].forEach(i=>{
+    document.getElementById('tab'+i).classList.toggle('active',i===n);
+    document.getElementById('tabBtn'+i).classList.toggle('active',i===n);
+  });
+}
+
+const fmt=d=>d? new Date(d).toISOString().slice(0,10):'';
+const today=()=>{const t=new Date();t.setHours(0,0,0,0);return t;};
+function addMonths(dateStr,n){
+  const d=new Date(dateStr); const day=d.getDate();
+  d.setMonth(d.getMonth()+n);
+  if(d.getDate()!==day) d.setDate(0); // 말일 보정 (1/31 +1개월 → 2월 말일)
+  return fmt(d);
+}
+function diffDays(dateStr){ // 검증일 - 오늘
+  return Math.round((new Date(dateStr)-today())/86400000);
+}
+function vStatus(v){
+  if(v.doneDate) return {code:'ok',label:'완료 '+(v.result||''),cls:'b-ok'};
+  if(v.skip) return {code:'skip',label:'이력이관',cls:'b-plan'};
+  const dd=diffDays(v.due);
+  if(dd<0)  return {code:'late',label:'지연 D+'+(-dd),cls:'b-late'};
+  if(dd<=settings.d2) return {code:'dday',label:'2회 알람 (D-DAY)',cls:'b-dday'};
+  if(dd<=settings.d1) return {code:'d7',label:'1회 알람 (D-'+dd+')',cls:'b-d7'};
+  return {code:'plan',label:'예정 D-'+dd,cls:'b-plan'};
+}
+function save(){localStorage.setItem(LS_KEY,JSON.stringify(items));}
+
+/* ---------- 등록 폼 ---------- */
+function openForm(id){
+  editId=id||null; pendingLink=null;
+  document.getElementById('formTitle').textContent=id?'4M 변경 수정':'4M 변경 등록';
+  const it=id? items.find(x=>x.id===id):null;
+  fmNo.value=it?it.mgmtNo:autoNo(); fmCat.value=it?it.cat:'Machine';
+  fmCust.value=it?(it.cust||''):''; fmPart.value=it?(it.part||''):''; fmDesc.value=it?(it.desc||''):'';
+  fmBefore.value=it?(it.before||''):''; fmAfter.value=it?(it.after||''):'';
+  fmApprType.value=it?(it.apprType||'자체승인'):'자체승인';
+  fmApprState.value=it?(it.apprState||'진행중'):'진행중';
+  fmReceipt.value=it?(it.receipt||''):''; fmNotify.value=it?(it.notify||''):'';
+  fmApprove.value=it?(it.approve||''):''; fmApply.value=it?(it.apply||''):'';
+  fmRemark.value=it?(it.remark||''):'';
+  previewDates();
+  document.getElementById('formModal').classList.add('open');
+}
+function autoNo(){
+  const y=new Date().getFullYear();
+  const seq=items.filter(x=>x.mgmtNo&&x.mgmtNo.includes(y)).length+1;
+  return `4M-${y}-${String(seq).padStart(3,'0')}`;
+}
+function previewDates(){
+  const a=fmApply.value, el=document.getElementById('calcPreview');
+  if(!a){el.innerHTML='적용일자를 입력하면 초기유동 검증일자(1·2·3차)와 알람 일정(D-7 / D-DAY)이 자동 계산됩니다.';return;}
+  const d=[1,2,3].map(n=>addMonths(a,n));
+  el.innerHTML=`검증일자 자동 계산 → 1차 <b>${d[0]}</b> · 2차 <b>${d[1]}</b> · 3차 <b>${d[2]}</b><br>각 검증일 기준 <b>D-${settings.d1}</b>(1회) / <b>D-${settings.d2===0?'DAY':settings.d2}</b>(2회) 알람 발생`;
+}
+function closeForm(){document.getElementById('formModal').classList.remove('open');}
+function saveForm(){
+  if(!fmApply.value){alert('적용일자(알람 기준일)는 필수입니다.');return;}
+  const base={
+    mgmtNo:fmNo.value.trim(), cat:fmCat.value, cust:fmCust.value.trim(),
+    part:fmPart.value.trim(), desc:fmDesc.value.trim(),
+    before:fmBefore.value.trim(), after:fmAfter.value.trim(),
+    apprType:fmApprType.value, apprState:fmApprState.value,
+    receipt:fmReceipt.value, notify:fmNotify.value, approve:fmApprove.value,
+    apply:fmApply.value, remark:fmRemark.value.trim()
+  };
+  const vers=[1,2,3].map(n=>({no:n,due:addMonths(base.apply,n)}));
+  if(editId){
+    const it=items.find(x=>x.id===editId);
+    // 기준일 변경 시 미완료 차수만 재계산
+    const newV=vers.map((v,i)=> it.vers[i].doneDate? it.vers[i] : v);
+    Object.assign(it,base,{vers:newV});
+  }else{
+    items.push(Object.assign({id:Date.now(),vers},base));
+  }
+  if(pendingLink){ // 사내 점검 발견 항목 → 등록 연계 표시
+    const c=checks.find(x=>x.id===pendingLink.checkId);
+    if(c){const r=c.results.find(x=>x.key===pendingLink.key); if(r)r.linkedNo=base.mgmtNo;}
+    saveChecks(); renderChecks(); pendingLink=null;
+  }
+  save(); closeForm(); render();
+}
+function delItem(id){
+  if(!confirm('이 4M 변경 건을 삭제할까요?'))return;
+  items=items.filter(x=>x.id!==id); save(); render();
+}
+
+/* ---------- 검증 결과 ---------- */
+function openVerify(id,no){
+  verifyTarget={id,no};
+  const v=items.find(x=>x.id===id).vers[no-1];
+  document.getElementById('verifyTitle').textContent=`초기유동 검증 ${no}차 결과 입력 (검증일 ${v.due})`;
+  vmDate.value=v.doneDate||fmt(new Date()); vmResult.value=v.result||'OK';
+  vmMethod.value=v.method||''; vmOutcome.value=v.outcome||''; vmVerifier.value=v.verifier||'';
+  document.getElementById('verifyModal').classList.add('open');
+}
+function closeVerify(){document.getElementById('verifyModal').classList.remove('open');}
+function saveVerify(){
+  const v=items.find(x=>x.id===verifyTarget.id).vers[verifyTarget.no-1];
+  v.doneDate=vmDate.value; v.result=vmResult.value;
+  v.method=vmMethod.value.trim(); v.outcome=vmOutcome.value.trim(); v.verifier=vmVerifier.value.trim();
+  save(); closeVerify(); render();
+}
+function clearVerify(){
+  const v=items.find(x=>x.id===verifyTarget.id).vers[verifyTarget.no-1];
+  delete v.doneDate; delete v.result; delete v.method; delete v.outcome; delete v.verifier;
+  save(); closeVerify(); render();
+}
+
+/* ---------- 설정 ---------- */
+function openSettings(){
+  stMails.value=settings.mails; stD1.value=settings.d1; stD2.value=settings.d2;
+  document.getElementById('settingsModal').classList.add('open');
+}
+function closeSettings(){document.getElementById('settingsModal').classList.remove('open');}
+function saveSettings(){
+  settings={mails:stMails.value.trim(),d1:+stD1.value,d2:+stD2.value};
+  localStorage.setItem(LS_SET,JSON.stringify(settings));
+  closeSettings(); render();
+}
+
+/* ---------- 사내 4M 변경여부 점검 ---------- */
+function saveChecks(){localStorage.setItem(LS_CHK,JSON.stringify(checks));}
+
+function buildCheckForm(existing){
+  const box=document.getElementById('ckItems'); box.innerHTML='';
+  CHECK_ITEMS.forEach(g=>{
+    let html=`<div class="chk-group"><div class="g-title"><span class="badge b-cat">${g.grp.split(' ')[0]}</span>${g.grp}</div>`;
+    g.items.forEach(it=>{
+      const prev=existing? existing.results.find(r=>r.key===it.key):null;
+      const chg=prev&&prev.changed;
+      const apprBadge= it.appr==='자체'
+        ? '<span class="badge b-ok" title="협력사 자체 승인">자체승인</span>'
+        : '<span class="badge b-dday" title="고객 승인 (ISIR 실시)">고객승인·ISIR</span>';
+      html+=`<div class="chk-row ${chg?'changed':''}" id="row_${it.key}">
+        <span class="q">${it.q} ${apprBadge}</span>
+        <span class="opts">
+          <label><input type="radio" name="ck_${it.key}" value="0" ${!chg?'checked':''} onchange="toggleChk('${it.key}',false)">변동 없음</label>
+          <label><input type="radio" name="ck_${it.key}" value="1" ${chg?'checked':''} onchange="toggleChk('${it.key}',true)">변동 있음</label>
+        </span>
+        <input class="detail" id="dt_${it.key}" placeholder="변경 내용 기재 (변경전 → 변경후)" value="${chg?(prev.detail||'').replace(/"/g,'&quot;'):''}">
+      </div>`;
+    });
+    box.insertAdjacentHTML('beforeend',html+'</div>');
+  });
+}
+function toggleChk(key,changed){
+  document.getElementById('row_'+key).classList.toggle('changed',changed);
+  if(changed)document.getElementById('dt_'+key).focus();
+}
+function openCheck(id){
+  editCheckId=id||null;
+  const c=id? checks.find(x=>x.id===id):null;
+  document.getElementById('checkTitle').textContent=id?'사내 4M 변동 확인 (수정)':'사내 4M 변동 확인 (자체점검)';
+  ckDate.value=c?c.date:fmt(new Date()); ckCycle.value=c?(c.cycle||'월간'):'월간';
+  ckInspector.value=c?(c.inspector||''):''; ckQaLead.value=c?(c.qaLead||''):'';
+  ckLine.value=c?(c.line||''):''; ckNote.value=c?(c.note||''):'';
+  buildCheckForm(c);
+  document.getElementById('checkModal').classList.add('open');
+}
+function closeCheck(){document.getElementById('checkModal').classList.remove('open');}
+function saveCheck(){
+  if(!ckDate.value){alert('점검일자는 필수입니다.');return;}
+  const results=[];
+  CHECK_ITEMS.forEach(g=>g.items.forEach(it=>{
+    const changed=document.querySelector(`input[name=ck_${it.key}]:checked`).value==='1';
+    const prev=editCheckId? (checks.find(x=>x.id===editCheckId).results.find(r=>r.key===it.key)||{}):{};
+    results.push({key:it.key,changed,detail:changed?document.getElementById('dt_'+it.key).value.trim():'',linkedNo:changed?prev.linkedNo:undefined});
+  }));
+  const data={date:ckDate.value,cycle:ckCycle.value,inspector:ckInspector.value.trim(),qaLead:ckQaLead.value.trim(),line:ckLine.value.trim(),note:ckNote.value.trim(),results};
+  if(editCheckId)Object.assign(checks.find(x=>x.id===editCheckId),data);
+  else checks.push(Object.assign({id:Date.now()},data));
+  saveChecks(); closeCheck(); renderChecks();
+}
+function delCheck(id){
+  if(!confirm('이 점검 이력을 삭제할까요?'))return;
+  checks=checks.filter(x=>x.id!==id); saveChecks(); renderChecks();
+}
+/* 변경 발견 → 4M 변경 등록 연계 */
+function linkTo4M(checkId,key){
+  const c=checks.find(x=>x.id===checkId), r=c.results.find(x=>x.key===key);
+  openForm();
+  pendingLink={checkId,key};
+  const item=findItem(key);
+  fmCat.value=keyToCat(key);
+  fmDesc.value=`[사내점검 ${c.date} 발견] ${r.detail||item.q}`;
+  fmApprType.value= item.appr==='고객'?'고객승인':'자체승인';
+  fmReceipt.value=c.date;
+  if(r.detail&&r.detail.includes('→')){
+    const [b,a]=r.detail.split('→');
+    fmBefore.value=b.trim(); fmAfter.value=a.trim();
+  }
+}
+function renderChecks(){
+  const filter=document.getElementById('ckFilter').value;
+  const tb=document.getElementById('ckBody'); tb.innerHTML='';
+  let shown=0, foundTotal=0, unlinked=0;
+  checks.slice().sort((a,b)=>new Date(b.date)-new Date(a.date)).forEach(c=>{
+    const found=c.results.filter(r=>r.changed);
+    foundTotal+=found.length;
+    unlinked+=found.filter(r=>!r.linkedNo).length;
+    if(filter==='found'&&!found.length)return;
+    if(filter==='none'&&found.length)return;
+    shown++;
+    const resBadge=found.length
+      ? `<span class="badge b-d7">변동 있음 ${found.length}건</span>`
+      : `<span class="badge b-ok">변동사항 없음</span>`;
+    const details=found.map(r=>{
+      const item=findItem(r.key);
+      const ap=item.appr==='고객'?'<span class="badge b-dday" style="font-size:.62rem">고객승인·ISIR</span>':'<span class="badge b-ok" style="font-size:.62rem">자체승인</span>';
+      return `<div style="margin:2px 0"><span class="found-chip">${keyToCat(r.key)}</span> ${r.detail||item.q} ${ap}</div>`;
+    }).join('')||'<span style="color:var(--muted)">-</span>';
+    const links=found.map(r=> r.linkedNo
+        ? `<div><span class="badge b-ok">연계완료 ${r.linkedNo}</span></div>`
+        : `<div><button class="btn btn-sm" onclick="linkTo4M(${c.id},'${r.key}')">4M 등록 연계</button></div>`
+      ).join('')||'<span style="color:var(--muted)">-</span>';
+    tb.insertAdjacentHTML('beforeend',`<tr>
+      <td class="mono"><b>${c.date}</b></td>
+      <td>${c.cycle}</td>
+      <td>${c.inspector||''}${c.qaLead?'<br><span style="font-size:.7rem;color:var(--muted)">책임: '+c.qaLead+'</span>':''}</td>
+      <td>${c.line||''}</td>
+      <td>${resBadge}</td>
+      <td class="left" style="max-width:280px">${details}</td>
+      <td>${links}</td>
+      <td>
+        <button class="btn btn-sm" onclick="openCheck(${c.id})">수정</button>
+        <button class="btn btn-sm btn-danger" onclick="delCheck(${c.id})">삭제</button>
+      </td>
+    </tr>`);
+  });
+  document.getElementById('ckEmpty').style.display=shown?'none':'block';
+  // KPI
+  ckTotal.textContent=checks.length;
+  ckFound.textContent=foundTotal;
+  ckUnlinked.textContent=unlinked;
+  const last=checks.length? checks.map(c=>c.date).sort().slice(-1)[0]:null;
+  ckLast.textContent=last||'-';
+  if(last){
+    const lastC=checks.filter(c=>c.date===last).sort((a,b)=>b.id-a.id)[0];
+    const days=lastC.cycle==='주간'?7:30; // 월간·수시 기본 30일
+    const next=new Date(last); next.setDate(next.getDate()+days);
+    const overdue=next<today();
+    ckOverdue.textContent=fmt(next)+(overdue?' (지연)':'');
+    ckOverdue.style.color=overdue?'var(--late)':'var(--ink)';
+  }else ckOverdue.textContent='-';
+}
+function exportChecksCSV(){
+  const head=['점검일자','주기','담당자','품질책임','대상 라인/공정',...CHECK_ITEMS.flatMap(g=>g.items.map(it=>`[${g.grp}] ${it.q} (${it.appr==='고객'?'고객승인':'자체승인'})`)),'변동 발견 내용','연계 관리번호','특이사항'];
+  const lines=checks.slice().sort((a,b)=>new Date(a.date)-new Date(b.date)).map(c=>{
+    const cells=CHECK_ITEMS.flatMap(g=>g.items.map(it=>{
+      const r=c.results.find(x=>x.key===it.key);
+      return r&&r.changed?'변동 있음':'변동 없음';
+    }));
+    const found=c.results.filter(r=>r.changed);
+    return [c.date,c.cycle,c.inspector,c.qaLead||'',c.line,...cells,
+      found.map(r=>`(${keyToCat(r.key)}) ${r.detail||keyToQ(r.key)}`).join(' / ').replace(/[\r\n,]/g,' '),
+      found.map(r=>r.linkedNo||'미연계').join(' / '),
+      (c.note||'').replace(/[\r\n,]/g,' ')];
+  });
+  const csv='\uFEFF'+[head,...lines].map(r=>r.join(',')).join('\n');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
+  a.download=`사내_4M변동확인_자체점검_${fmt(new Date())}.csv`;a.click();
+}
+
+/* ---------- 알람 메일 ---------- */
+function alarmRows(){
+  const rows=[];
+  items.forEach(it=>it.vers.forEach(v=>{
+    const s=vStatus(v);
+    if(['d7','dday','late'].includes(s.code))
+      rows.push({it,v,s});
+  }));
+  rows.sort((a,b)=>new Date(a.v.due)-new Date(b.v.due));
+  return rows;
+}
+function sendMail(){
+  const rows=alarmRows();
+  if(!rows.length){alert('금일 알람 대상이 없습니다.');return;}
+  const body=['[4M 변경 초기유동 검증 알람] '+fmt(new Date()),'',
+    ...rows.map(r=>`- [${r.s.label}] ${r.it.mgmtNo} ${r.it.cust} ${r.it.part} / ${r.v.no}차 검증일 ${r.v.due} / ${r.it.desc}`),
+    '','※ 기준일: 적용일자 / 검증일자 = 적용일 +1·2·3개월'].join('\n');
+  location.href='mailto:'+encodeURIComponent(settings.mails)
+    +'?subject='+encodeURIComponent('[알람] 4M 변경 초기유동 검증 일정 도래')
+    +'&body='+encodeURIComponent(body);
+}
+
+/* ---------- 백업 / 내보내기 ---------- */
+function backupJSON(){
+  const blob=new Blob([JSON.stringify({items,checks,settings},null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download=`4M_초기유동관리_백업_${fmt(new Date())}.json`;a.click();
+}
+function restoreJSON(input){
+  const f=input.files[0]; if(!f)return;
+  const r=new FileReader();
+  r.onload=e=>{try{
+    const d=JSON.parse(e.target.result);
+    items=d.items||[]; checks=d.checks||[]; settings=Object.assign(settings,d.settings||{});
+    save(); saveChecks(); localStorage.setItem(LS_SET,JSON.stringify(settings)); render(); renderChecks();
+    alert('복원 완료: 변경 '+items.length+'건 / 점검 '+checks.length+'건');
+  }catch(err){alert('파일을 읽을 수 없습니다.');}};
+  r.readAsText(f); input.value='';
+}
+function exportCSV(){
+  const head=['관리번호','4M구분','고객사','품번/품명','변경목적','변경전','변경후','승인구분','승인여부','접수일자','고객통보일자','고객승인일자','적용일자','비고',
+    '1차 검증일','1차 상태','1차 실시일자','1차 실시방법','1차 실시결과','1차 판정',
+    '2차 검증일','2차 상태','2차 실시일자','2차 실시방법','2차 실시결과','2차 판정',
+    '3차 검증일','3차 상태','3차 실시일자','3차 실시방법','3차 실시결과','3차 판정'];
+  const cl=t=>(t||'').toString().replace(/[\r\n,]/g,' ');
+  const lines=items.map(it=>{
+    const v=n=>{const x=it.vers[n];const s=vStatus(x);return [x.due,s.label,x.doneDate||'',cl(x.method),cl(x.outcome),x.result||''];};
+    return [it.mgmtNo,it.cat,it.cust,cl(it.part),cl(it.desc),cl(it.before),cl(it.after),it.apprType||'',it.apprState||'',it.receipt||'',it.notify||'',it.approve||'',it.apply,cl(it.remark),...v(0),...v(1),...v(2)];
+  });
+  const csv='\uFEFF'+[head,...lines].map(r=>r.join(',')).join('\n');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
+  a.download=`4M변경관리대장_DQF403-02_${fmt(new Date())}.csv`;a.click();
+}
+
+/* ---------- 렌더 ---------- */
+function render(){
+  const q=document.getElementById('q').value.toLowerCase();
+  const fc=document.getElementById('fCat').value, fs=document.getElementById('fStatus').value;
+  const tb=document.getElementById('tbody'); tb.innerHTML='';
+  let shown=0;
+
+  items.slice().sort((a,b)=>new Date(b.apply)-new Date(a.apply)).forEach(it=>{
+    const text=[it.mgmtNo,it.cust,it.part,it.desc,it.before,it.after,it.remark].join(' ').toLowerCase();
+    if(q&&!text.includes(q))return;
+    if(fc&&it.cat!==fc)return;
+    const codes=it.vers.map(v=>vStatus(v).code);
+    const allDone=codes.every(c=>c==='ok'||c==='skip');
+    const hasAlarm=codes.some(c=>['d7','dday','late'].includes(c));
+    if(fs==='done'&&!allDone)return;
+    if(fs==='open'&&allDone)return;
+    if(fs==='alarm'&&!hasAlarm)return;
+    shown++;
+
+    const vcell=v=>{
+      const s=vStatus(v);
+      return `<td><div class="vcell">
+        <span class="date mono">${v.due}</span>
+        <span class="badge ${s.cls}">${s.label}</span>
+        ${v.doneDate?`<span style="font-size:.7rem;color:var(--muted)" title="${(v.method||'')+' / '+(v.outcome||'')}">${v.doneDate}${v.verifier?' · '+v.verifier:''}</span>`:''}
+        ${v.outcome?`<span style="font-size:.68rem;color:var(--muted);max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${v.outcome}</span>`:''}
+        ${v.skip&&!v.doneDate?'':`<button onclick="openVerify(${it.id},${v.no})">${v.doneDate?'수정':'결과입력'}</button>`}
+      </div></td>`;
+    };
+    const apprBadge= it.apprState==='승인'? '<span class="badge b-ok">승인</span>'
+      : it.apprState==='반려'? '<span class="badge b-late">반려</span>'
+      : '<span class="badge b-d7">진행중</span>';
+    tb.insertAdjacentHTML('beforeend',`<tr>
+      <td class="mono">${it.mgmtNo}</td>
+      <td><span class="badge b-cat">${it.cat}</span></td>
+      <td>${it.cust||''}</td>
+      <td class="left">${it.part||''}</td>
+      <td class="left" style="max-width:180px">${it.desc||''}</td>
+      <td class="left mono" style="max-width:140px;font-size:.76rem">${it.before||'-'} → ${it.after||'-'}</td>
+      <td><div class="vcell"><span style="font-size:.72rem">${it.apprType||''}</span>${apprBadge}</div></td>
+      <td class="mono" style="font-size:.72rem">${it.receipt||'-'}<br>${it.notify||'-'}<br>${it.approve||'-'}</td>
+      <td class="mono"><b>${it.apply}</b></td>
+      ${vcell(it.vers[0])}${vcell(it.vers[1])}${vcell(it.vers[2])}
+      <td>
+        <button class="btn btn-sm" onclick="openForm(${it.id})">수정</button>
+        <button class="btn btn-sm btn-danger" onclick="delItem(${it.id})">삭제</button>
+      </td>
+    </tr>`);
+  });
+  document.getElementById('emptyMsg').style.display=shown?'none':'block';
+
+  // KPI + 알람 보드
+  let d7=0,dday=0,late=0,done=0;
+  const rows=alarmRows();
+  items.forEach(it=>{
+    const codes=it.vers.map(v=>vStatus(v).code);
+    if(codes.every(c=>c==='ok'||c==='skip'))done++;
+    codes.forEach(c=>{if(c==='d7')d7++;if(c==='dday')dday++;if(c==='late')late++;});
+  });
+  kpiTotal.textContent=items.length; kpiD7.textContent=d7; kpiDday.textContent=dday;
+  kpiLate.textContent=late; kpiDone.textContent=done;
+  todayLabel.textContent='('+fmt(new Date())+' 기준)';
+
+  const al=document.getElementById('alarmList');
+  al.innerHTML=rows.length? rows.map(r=>`<div class="alarm-item">
+      <span class="badge ${r.s.cls}">${r.s.label}</span>
+      <span class="who">${r.it.mgmtNo} · ${r.it.cust} · ${r.it.part}</span>
+      <span class="desc">${r.v.no}차 검증일 <b class="mono">${r.v.due}</b> — ${r.it.desc||''}</span>
+      <button class="btn btn-sm" onclick="openVerify(${r.it.id},${r.v.no})">결과입력</button>
+    </div>`).join('')
+    : '<div class="empty">금일 기준 알람 대상이 없습니다. ✅</div>';
+}
+
+/* 모달 바깥 클릭 닫기 */
+document.querySelectorAll('.modal-bg').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
+
+render();
+renderChecks();
+</script>
+</body>
+</html>
