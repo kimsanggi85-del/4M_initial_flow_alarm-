@@ -74,14 +74,14 @@ main{max-width:1280px;margin:0 auto;padding:20px 24px 60px}
 
 /* 테이블 */
 .table-wrap{overflow-x:auto}
-table{width:100%;border-collapse:collapse;font-size:.82rem;min-width:1420px}
+table{width:100%;border-collapse:collapse;font-size:.82rem;min-width:1480px}
 th{background:#F7F9FC;border-bottom:2px solid var(--line);padding:9px 8px;font-size:.75rem;color:#44506A;white-space:nowrap;text-align:center}
-td{border-bottom:1px solid var(--line);padding:8px;text-align:center;vertical-align:middle}
-td.left{text-align:left}
+td{border-bottom:1px solid var(--line);padding:8px;text-align:center;vertical-align:middle;white-space:nowrap}
+td.left{text-align:left;white-space:normal;word-break:keep-all}
 tr:hover td{background:#FAFBFD}
 .mono{font-variant-numeric:tabular-nums}
 .vcell{display:flex;flex-direction:column;gap:3px;align-items:center}
-.vcell .date{font-size:.78rem}
+.vcell .date{font-size:.78rem;white-space:nowrap}
 .vcell button{border:none;background:none;color:var(--steel);font-size:.72rem;cursor:pointer;text-decoration:underline;font-family:inherit}
 
 /* 모달 */
@@ -118,6 +118,28 @@ input:focus,select:focus,textarea:focus{outline:2px solid #BBD0F5;border-color:v
 .chk-row.changed{background:#FFF9EC}
 .found-chip{display:inline-block;background:var(--warn-bg);color:var(--warn);border-radius:99px;padding:1px 8px;font-size:.7rem;font-weight:800}
 
+/* Supabase 설정 모달 (다크) */
+.modal.dark{background:#171E2E;color:#E5EAF3;border:1px solid #2A3550}
+.modal.dark h3{color:#fff;display:flex;align-items:center;gap:8px}
+.modal.dark .sb-info{background:#1E2740;border:1px solid #2A3550;border-radius:10px;padding:12px 14px;font-size:.78rem;line-height:1.7;margin-bottom:14px}
+.modal.dark .sb-info code{background:#0F1524;color:#9EC1FF;padding:1px 6px;border-radius:5px;font-size:.72rem}
+.modal.dark label{color:#AEBBD3}
+.modal.dark input{background:#0F1524;border:1px solid #2A3550;color:#E5EAF3;font-family:ui-monospace,Consolas,monospace;font-size:.78rem}
+.modal.dark input:focus{outline:2px solid #33477A;border-color:#4C86E8}
+.sb-btns{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0}
+.sb-btn{padding:11px;border-radius:9px;border:none;font-family:inherit;font-weight:700;font-size:.85rem;cursor:pointer}
+.sb-save{background:linear-gradient(135deg,#4C6FE8,#6C8CFF);color:#fff}
+.sb-reset{background:#3A1D24;color:#F49AA6;border:1px solid #5C2B36}
+.sb-up{background:#1C2B4A;color:#8FB6FF;border:1px solid #2E4470}
+.sb-down{background:#173226;color:#7BE2A8;border:1px solid #245C40}
+.sb-data{background:#1E2740;border:1px solid #2A3550;border-radius:10px;padding:12px 14px;font-size:.8rem;margin-bottom:14px;display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.sb-data b{color:#9EC1FF}
+.modal.dark details{background:#1E2740;border:1px solid #2A3550;border-radius:10px;padding:10px 14px;font-size:.78rem}
+.modal.dark summary{cursor:pointer;font-weight:700;color:#9EC1FF}
+.modal.dark pre{background:#0F1524;border-radius:8px;padding:10px;margin-top:8px;overflow-x:auto;font-size:.7rem;color:#C9D6EE;line-height:1.5}
+.sb-status{font-size:.78rem;margin-top:4px;min-height:1.2em}
+.modal.dark .x-close{position:absolute;top:14px;right:16px;background:none;border:none;color:#8CA0C4;font-size:1.2rem;cursor:pointer}
+
 @media (max-width:700px){
   main{padding:14px 12px 50px}
   .form-grid{grid-template-columns:1fr}
@@ -138,6 +160,8 @@ input:focus,select:focus,textarea:focus{outline:2px solid #BBD0F5;border-color:v
     <div class="sub">태진다이텍 품질관리팀 · 초기 유동 검증 누락 방지 (D-7 / D-DAY 알람)</div>
   </div>
   <div class="spacer"></div>
+  <span id="syncStatus" style="font-size:.75rem;padding:5px 11px;border-radius:99px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2)">⚪ 로컬 모드</span>
+  <button onclick="openSbModal()">☁ DB 설정</button>
   <button onclick="openSettings()">⚙ 알람 설정</button>
   <button onclick="exportCSV()">Excel 내보내기</button>
   <button onclick="backupJSON()">백업</button>
@@ -322,6 +346,44 @@ input:focus,select:focus,textarea:focus{outline:2px solid #BBD0F5;border-color:v
   </div>
 </div>
 
+<!-- Supabase 동기화 설정 모달 -->
+<div class="modal-bg" id="sbModal">
+  <div class="modal dark" style="max-width:480px;position:relative">
+    <button class="x-close" onclick="closeSbModal()">✕</button>
+    <h3>☁ Supabase 동기화 설정</h3>
+    <div class="sb-info">
+      🖥 <b>PC와 모바일에서 동일한 데이터를 사용하려면 설정이 필요합니다.</b><br>
+      • Supabase URL과 anon KEY를 입력하면 <b>모든 기기에서 자동 동기화</b>됩니다.<br>
+      • 데이터 변경 시 자동 업로드, 페이지 로드 시 자동 다운로드.<br>
+      • 테이블: <code>kv_store</code> (key TEXT PK, value JSONB)<br>
+      • 저장되는 키: <code>4m_iflow_v1</code>
+    </div>
+    <div style="margin-bottom:10px"><label>Supabase Project URL</label><input id="sbUrlInput" placeholder="https://xxxx.supabase.co"></div>
+    <div><label>Supabase anon / publishable KEY</label><input id="sbKeyInput" placeholder="sb_publishable_... 또는 eyJhbGci..."></div>
+    <div class="sb-status" id="sbStatus"></div>
+    <div class="sb-btns">
+      <button class="sb-btn sb-save" onclick="sbSaveTest()">💾 저장 및 연결 테스트</button>
+      <button class="sb-btn sb-reset" onclick="sbReset()">설정 초기화</button>
+    </div>
+    <div class="sb-data" id="sbDataInfo"></div>
+    <div class="sb-btns" style="margin-top:0">
+      <button class="sb-btn sb-up" onclick="sbUpload()">⬆ 로컬→클라우드 업로드</button>
+      <button class="sb-btn sb-down" onclick="sbDownload()">⬇ 클라우드→로컬 다운로드</button>
+    </div>
+    <details>
+      <summary>▶ kv_store 테이블이 없을 때 실행할 SQL</summary>
+      <pre>create table if not exists kv_store (
+  key text primary key,
+  value jsonb,
+  updated_at timestamptz default now()
+);
+alter table kv_store enable row level security;
+create policy "anon_all" on kv_store
+  for all using (true) with check (true);</pre>
+    </details>
+  </div>
+</div>
+
 <!-- 알람 설정 모달 -->
 <div class="modal-bg" id="settingsModal">
   <div class="modal" style="max-width:480px">
@@ -342,6 +404,110 @@ input:focus,select:focus,textarea:focus{outline:2px solid #BBD0F5;border-color:v
 </div>
 
 <script>
+/* ================= Supabase 클라우드 동기화 (kv_store 패턴) =================
+   Supabase 대시보드 → Settings → API 에서 복사해 아래 두 줄에 붙여넣으세요. */
+const DEFAULT_SB_URL='https://ebthltdmxpzlkfwvdloz.supabase.co';
+const DEFAULT_SB_KEY='sb_publishable_ZSgcZapb7cTgFezGmOV_ow_9MT15SnS';
+let SB_URL=localStorage.getItem('4m_sb_url')||DEFAULT_SB_URL;
+let SB_KEY=localStorage.getItem('4m_sb_key')||DEFAULT_SB_KEY;
+const SB_TABLE='kv_store', SB_ROWKEY='4m_iflow_v1';
+function cloudOn(){return SB_KEY.length>20 && !SB_KEY.includes('붙여넣기');}
+
+function setSync(t,color){const el=document.getElementById('syncStatus');if(el){el.textContent=t;el.style.color=color||'#fff';}}
+function sbHeaders(){return {'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'};}
+
+async function cloudLoad(force){
+  if(!cloudOn())return;
+  try{
+    setSync('🔄 불러오는 중');
+    const r=await fetch(`${SB_URL}/rest/v1/${SB_TABLE}?key=eq.${SB_ROWKEY}&select=value`,{headers:sbHeaders()});
+    if(!r.ok)throw new Error(r.status);
+    const rows=await r.json();
+    if(rows.length&&rows[0].value){
+      const cloud=rows[0].value;
+      const localAt=+(localStorage.getItem('4m_iflow_updatedAt')||0);
+      if(force||(cloud.updatedAt||0)>localAt){
+        items=cloud.items||items; checks=cloud.checks||checks;
+        settings=Object.assign(settings,cloud.settings||{});
+        localStorage.setItem(LS_KEY,JSON.stringify(items));
+        localStorage.setItem(LS_CHK,JSON.stringify(checks));
+        localStorage.setItem(LS_SET,JSON.stringify(settings));
+        localStorage.setItem('4m_iflow_updatedAt',String(cloud.updatedAt||Date.now()));
+        render(); renderChecks();
+      }
+    }
+    setSync('🟢 클라우드 동기화','#7BE2A8');
+  }catch(e){setSync('⚠ 동기화 오류','#FCA5A5');console.error('cloudLoad',e);}
+}
+let syncTimer=null;
+function scheduleCloudSave(){
+  if(!cloudOn())return;
+  clearTimeout(syncTimer);
+  setSync('🔄 저장 대기');
+  syncTimer=setTimeout(cloudSave,1500);
+}
+async function cloudSave(){
+  if(!cloudOn())return;
+  try{
+    setSync('🔄 저장 중');
+    const now=Date.now();
+    const payload={key:SB_ROWKEY,value:{items,checks,settings,updatedAt:now}};
+    const r=await fetch(`${SB_URL}/rest/v1/${SB_TABLE}?on_conflict=key`,{
+      method:'POST',
+      headers:Object.assign({},sbHeaders(),{'Prefer':'resolution=merge-duplicates'}),
+      body:JSON.stringify(payload)});
+    if(!r.ok)throw new Error(r.status);
+    localStorage.setItem('4m_iflow_updatedAt',String(now));
+    setSync('🟢 클라우드 동기화','#7BE2A8');
+  }catch(e){setSync('⚠ 동기화 오류','#FCA5A5');console.error('cloudSave',e);}
+}
+/* ----- Supabase 설정 모달 ----- */
+function openSbModal(){
+  sbUrlInput.value=SB_URL; sbKeyInput.value=SB_KEY;
+  document.getElementById('sbStatus').textContent='';
+  document.getElementById('sbDataInfo').innerHTML=
+    `<span>📊 <b>현재 로컬 데이터</b></span><span></span>
+     <span>4M 변경: <b>${JSON.parse(localStorage.getItem('4m_iflow_v1')||'[]').length}건</b></span>
+     <span>점검 이력: <b>${JSON.parse(localStorage.getItem('4m_iflow_checks_v1')||'[]').length}건</b></span>`;
+  document.getElementById('sbModal').classList.add('open');
+}
+function closeSbModal(){document.getElementById('sbModal').classList.remove('open');}
+function sbMsg(t,ok){const el=document.getElementById('sbStatus');el.textContent=t;el.style.color=ok?'#7BE2A8':'#FCA5A5';}
+async function sbTestConn(){
+  const r=await fetch(`${SB_URL}/rest/v1/${SB_TABLE}?key=eq.${SB_ROWKEY}&select=key`,{headers:sbHeaders()});
+  if(!r.ok){const t=await r.text();throw new Error(r.status+' '+t.slice(0,120));}
+  return (await r.json()).length;
+}
+async function sbSaveTest(){
+  SB_URL=sbUrlInput.value.trim().replace(/\/+$/,''); SB_KEY=sbKeyInput.value.trim();
+  localStorage.setItem('4m_sb_url',SB_URL); localStorage.setItem('4m_sb_key',SB_KEY);
+  sbMsg('🔄 연결 테스트 중...',true);
+  try{
+    const n=await sbTestConn();
+    sbMsg(n?'🟢 연결 성공! 클라우드에 저장된 데이터가 있습니다.':'🟢 연결 성공! (클라우드에 아직 데이터 없음)',true);
+    setSync('🟢 클라우드 동기화','#7BE2A8');
+  }catch(e){sbMsg('🔴 연결 실패: '+e.message+' — kv_store 테이블/RLS 정책 확인',false);setSync('⚠ 동기화 오류','#FCA5A5');}
+}
+function sbReset(){
+  if(!confirm('URL/KEY를 기본값(태진 공용 프로젝트)으로 되돌릴까요?'))return;
+  localStorage.removeItem('4m_sb_url');localStorage.removeItem('4m_sb_key');
+  SB_URL=DEFAULT_SB_URL;SB_KEY=DEFAULT_SB_KEY;
+  sbUrlInput.value=SB_URL;sbKeyInput.value=SB_KEY;
+  sbMsg('기본값으로 초기화되었습니다.',true);
+}
+async function sbUpload(){
+  sbMsg('🔄 업로드 중...',true);
+  try{await cloudSave();sbMsg('🟢 로컬 데이터를 클라우드에 업로드했습니다.',true);}
+  catch(e){sbMsg('🔴 업로드 실패: '+e.message,false);}
+}
+async function sbDownload(){
+  if(!confirm('클라우드 데이터로 로컬을 덮어씁니다. 진행할까요?'))return;
+  sbMsg('🔄 다운로드 중...',true);
+  try{await cloudLoad(true);openSbModal();sbMsg('🟢 클라우드 데이터를 불러왔습니다.',true);}
+  catch(e){sbMsg('🔴 다운로드 실패: '+e.message,false);}
+}
+/* ============================================================================ */
+
 const LS_KEY='4m_iflow_v1', LS_SET='4m_iflow_settings_v1', LS_CHK='4m_iflow_checks_v1';
 let items=JSON.parse(localStorage.getItem(LS_KEY)||'[]');
 let checks=JSON.parse(localStorage.getItem(LS_CHK)||'[]');
@@ -418,7 +584,7 @@ function vStatus(v){
   if(dd<=settings.d1) return {code:'d7',label:'1회 알람 (D-'+dd+')',cls:'b-d7'};
   return {code:'plan',label:'예정 D-'+dd,cls:'b-plan'};
 }
-function save(){localStorage.setItem(LS_KEY,JSON.stringify(items));}
+function save(){localStorage.setItem(LS_KEY,JSON.stringify(items));scheduleCloudSave();}
 
 /* ---------- 등록 폼 ---------- */
 function openForm(id){
@@ -509,12 +675,12 @@ function openSettings(){
 function closeSettings(){document.getElementById('settingsModal').classList.remove('open');}
 function saveSettings(){
   settings={mails:stMails.value.trim(),d1:+stD1.value,d2:+stD2.value};
-  localStorage.setItem(LS_SET,JSON.stringify(settings));
+  localStorage.setItem(LS_SET,JSON.stringify(settings));scheduleCloudSave();
   closeSettings(); render();
 }
 
 /* ---------- 사내 4M 변경여부 점검 ---------- */
-function saveChecks(){localStorage.setItem(LS_CHK,JSON.stringify(checks));}
+function saveChecks(){localStorage.setItem(LS_CHK,JSON.stringify(checks));scheduleCloudSave();}
 
 function buildCheckForm(existing){
   const box=document.getElementById('ckItems'); box.innerHTML='';
@@ -790,6 +956,7 @@ document.querySelectorAll('.modal-bg').forEach(m=>m.addEventListener('click',e=>
 
 render();
 renderChecks();
+cloudLoad();
 </script>
 </body>
 </html>
