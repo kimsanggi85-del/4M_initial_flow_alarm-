@@ -79,6 +79,20 @@ th{background:#F7F9FC;border-bottom:2px solid var(--line);padding:9px 8px;font-s
 td{border-bottom:1px solid var(--line);padding:8px;text-align:center;vertical-align:middle;white-space:nowrap}
 td.left{text-align:left;white-space:normal;word-break:keep-all}
 tr:hover td{background:#FAFBFD}
+/* 점검 이력 표: 가로 스크롤 없이 화면에 맞추고 [관리] 열을 오른쪽에 고정 */
+table.ck-table{min-width:0;table-layout:fixed}
+table.ck-table td{white-space:normal;word-break:keep-all}
+table.ck-table th:last-child,table.ck-table td:last-child{position:sticky;right:0;z-index:2;box-shadow:-6px 0 8px -6px rgba(15,23,42,.18)}
+table.ck-table td:last-child{background:#fff}
+table.ck-table th:last-child{background:#F7F9FC}
+table.ck-table tr:hover td:last-child{background:#FAFBFD}
+.ck-act{display:flex;flex-direction:column;gap:4px;align-items:stretch}
+.ck-act .btn{width:100%}
+.row-miss{background:#FFF9EC!important}
+.miss-tag{font-size:.66rem;color:#B45309;font-weight:700}
+@media(max-width:900px){
+  table.ck-table th.col-hide,table.ck-table td.col-hide{display:none}
+}
 .mono{font-variant-numeric:tabular-nums}
 .vcell{display:flex;flex-direction:column;gap:3px;align-items:center}
 .vcell .date{font-size:.78rem;white-space:nowrap}
@@ -273,15 +287,22 @@ table.fit td.left{max-width:170px!important}
 
     <div class="panel">
       <div class="table-wrap">
-        <table>
+        <table class="ck-table">
+          <colgroup>
+            <col style="width:11%"><col style="width:7%"><col style="width:12%"><col style="width:13%">
+            <col style="width:12%"><col style="width:22%"><col style="width:12%"><col style="width:11%">
+          </colgroup>
           <thead>
             <tr>
               <th>점검일자</th><th>주기</th><th>담당자 / 책임</th><th>대상 라인/공정</th>
-              <th>점검 결과</th><th>변동 발견 내용 (승인기준)</th><th>4M 등록 연계</th><th>관리</th>
+              <th>점검 결과</th><th class="col-hide">변동 발견 내용 (승인기준)</th><th class="col-hide">4M 등록 연계</th><th>관리</th>
             </tr>
           </thead>
           <tbody id="ckBody"></tbody>
         </table>
+      </div>
+      <div class="hint" style="padding:8px 12px;font-size:.74rem;color:var(--muted);border-top:1px solid var(--line)">
+        ※ 잘못 입력했거나 담당자·라인 등이 빠진 건은 우측 <b>[관리] 열의 [✏ 수정]</b> 버튼(또는 행을 더블클릭)으로 바로 고칠 수 있습니다. 미기입 항목이 있는 건은 노란색으로 표시됩니다.
       </div>
       <div class="empty" id="ckEmpty" style="display:none">점검 이력이 없습니다. [＋ 사내 4M 변동 확인 실시]로 첫 점검을 등록하세요.</div>
     </div>
@@ -918,17 +939,24 @@ function renderChecks(){
         ? `<div><span class="badge b-ok">연계완료 ${r.linkedNo}</span></div>`
         : `<div><button class="btn btn-sm" onclick="linkTo4M(${c.id},'${r.key}')">4M 등록 연계</button></div>`
       ).join('')||'<span style="color:var(--muted)">-</span>';
-    tb.insertAdjacentHTML('beforeend',`<tr>
-      <td class="mono"><b>${c.date}</b></td>
+    const miss=[];
+    if(!(c.inspector||'').trim())miss.push('담당자');
+    if(!(c.line||'').trim())miss.push('대상 라인/공정');
+    if(found.length&&found.some(r=>!(r.detail||'').trim()))miss.push('변동 내용');
+    const missTag=miss.length?`<div class="miss-tag" title="미기입 항목">⚠ 미기입: ${miss.join(', ')}</div>`:'';
+    tb.insertAdjacentHTML('beforeend',`<tr class="${miss.length?'row-miss':''}" ondblclick="openCheck(${c.id})" title="행을 더블클릭하면 수정 창이 열립니다">
+      <td class="mono"><b>${c.date}</b>${missTag}</td>
       <td>${c.cycle}</td>
-      <td>${c.inspector||''}${c.qaLead?'<br><span style="font-size:.7rem;color:var(--muted)">책임: '+c.qaLead+'</span>':''}</td>
-      <td>${c.line||''}</td>
+      <td>${c.inspector||'<span style="color:#C2410C">미기입</span>'}${c.qaLead?'<br><span style="font-size:.7rem;color:var(--muted)">책임: '+c.qaLead+'</span>':''}</td>
+      <td>${c.line||'<span style="color:#C2410C">미기입</span>'}</td>
       <td>${resBadge}</td>
-      <td class="left" style="max-width:280px">${details}</td>
-      <td>${links}</td>
+      <td class="left col-hide">${details}</td>
+      <td class="col-hide">${links}</td>
       <td>
-        <button class="btn btn-sm" onclick="openCheck(${c.id})">수정</button>
-        <button class="btn btn-sm btn-danger" onclick="delCheck(${c.id})">삭제</button>
+        <div class="ck-act">
+          <button class="btn btn-sm btn-primary" onclick="event.stopPropagation();openCheck(${c.id})">✏ 수정</button>
+          <button class="btn btn-sm btn-danger" onclick="event.stopPropagation();delCheck(${c.id})">삭제</button>
+        </div>
       </td>
     </tr>`);
   });
