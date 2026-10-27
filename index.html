@@ -463,8 +463,10 @@ create policy "anon_all" on kv_store
 <script>
 /* ================= Supabase 클라우드 동기화 (kv_store 패턴) =================
    Supabase 대시보드 → Settings → API 에서 복사해 아래 두 줄에 붙여넣으세요. */
-const DEFAULT_SB_URL='https://ebthltdmxpzlkfwvdloz.supabase.co';
-const DEFAULT_SB_KEY='sb_publishable_ZSgcZapb7cTgFezGmOV_ow_9MT15SnS';
+const DEFAULT_SB_URL='https://omngtyewdaqpphnzeate.supabase.co';
+const DEFAULT_SB_KEY='sb_publishable_9j2YkkL-7ul1TrhH-NjVdQ_vWDG2-1D';
+/* [2026-10-27 Supabase 통합] 이 기기에 저장된 옛 DB 주소(ebthltd…)·키는 무시하고 SmartFactory 로 바꾼다 (설정 초기화 불필요) */
+(function(){try{function f(u,k){var v=localStorage.getItem(u)||'';if(v.indexOf('ebthltd')>=0){localStorage.setItem(u,'https://omngtyewdaqpphnzeate.supabase.co');localStorage.setItem(k,'sb_publishable_9j2YkkL-7ul1TrhH-NjVdQ_vWDG2-1D');}}f('4m_sb_url','4m_sb_key');}catch(e){}})();
 let SB_URL=localStorage.getItem('4m_sb_url')||DEFAULT_SB_URL;
 let SB_KEY=localStorage.getItem('4m_sb_key')||DEFAULT_SB_KEY;
 const SB_TABLE='kv_store', SB_ROWKEY='4m_iflow_v1';
